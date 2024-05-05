@@ -1,10 +1,15 @@
 #include "heap.h"
 #include "memcopy.h"
 #include <unistd.h>
+#include <stdio.h>
+#include <stdint.h>
 
 heap* first_heap = NULL;
 
 void* malloc(size_t size) {
+	if (size == 0) {
+		return NULL;
+	}
 	// create the first heap if there is no heap
 	if (first_heap == NULL) {
 		first_heap = new_heap(size);
@@ -72,9 +77,9 @@ block* get_block_ptr(void* ptr) {
 	if (first_heap == NULL) {
 		return NULL;
 	}
-	for (heap* c_heap=first_heap; c_heap->next != NULL;c_heap=c_heap->next) {
+	for (heap* c_heap=first_heap; c_heap != NULL;c_heap=c_heap->next) {
 		if ((void*) c_heap < ptr && (void*) (c_heap + c_heap->real_size) > ptr) { // ptr is in c_heap
-			for (block* c_block; c_block != NULL; c_block=c_block->next) {
+			for (block* c_block = c_heap->block; c_block != NULL; c_block=c_block->next) {
 				if (c_block->pointer == ptr) {
 					return c_block;
 				}
@@ -85,7 +90,25 @@ block* get_block_ptr(void* ptr) {
 	return NULL;
 }
 
+void free(void* ptr) {
+	if (ptr == NULL) {
+		return;
+	}
+	block* block = get_block_ptr(ptr);
+	if (block != NULL) {
+		remove_block(block);
+	}
+}
+
+
 void* realloc(void* ptr, size_t size) {
+	if (ptr == NULL) {
+		return malloc(size);
+	} else if (size == 0) {
+		free(ptr);
+		return NULL;
+	}
+
 	block* r_block = get_block_ptr(ptr);
 	if (r_block == NULL) {
 		return NULL;
@@ -111,15 +134,21 @@ void* realloc(void* ptr, size_t size) {
 	if (new_ptr == NULL) {
 		return NULL;
 	}
-
 	memcopy(ptr, new_ptr, o_size);
-
 	remove_block(r_block);
+	return new_ptr;
 }
 
-void free(void* ptr) {
-	block* block = get_block_ptr(ptr);
-	if (block != NULL) {
-		remove_block(block);
+void* calloc(size_t nmemb, size_t size) {
+	if (nmemb == 0 || size == 0) {
+		return NULL;
 	}
+	void* allocted = malloc(nmemb * size);
+	if (allocted == NULL) {
+		return NULL;
+	}
+	for (size_t i=0; i < nmemb * size; i++) {
+		((uint8_t*) allocted)[i] = 0;
+	}
+	return allocted;
 }
